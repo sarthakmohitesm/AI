@@ -2,62 +2,233 @@ import random
 import re
 import sys
 import io
+import math
 from datetime import datetime
 
 # Fix encoding for Windows terminals
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
 
-# --- Response patterns -------------------------------------------------------
+# --- Conversation Memory ------------------------------------------------------
+user_name = None
+conversation_count = 0
+
+# --- Response patterns --------------------------------------------------------
 # Each key is a tuple of keywords/patterns, value is a list of possible replies.
 responses = {
-    ("hello", "hi", "hey", "hola", "sup"): [
+    # Greetings
+    ("hello", "hi", "hey", "hola", "sup", "yo", "howdy", "greetings", "good morning", "good afternoon", "good evening"): [
         "Hey there! How can I help you?",
         "Hello! Nice to see you!",
         "Hi! What's on your mind?",
+        "Hey! Ready to chat?",
+        "Howdy! What brings you here today?",
     ],
-    ("how are you", "how r you", "how do you do"): [
+    # How are you
+    ("how are you", "how r you", "how do you do", "how's it going", "what's up", "how u doing"): [
         "I'm doing great, thanks for asking! How about you?",
         "All systems running smoothly! What about you?",
         "I'm just a bunch of code, but I'm feeling fantastic!",
+        "Living my best digital life! How are you?",
+        "I'm wonderful! Every conversation makes my day better.",
     ],
-    ("your name", "who are you", "what are you"): [
+    # Identity
+    ("your name", "who are you", "what are you", "introduce yourself"): [
         "I'm ChatBot -- your friendly offline assistant!",
         "Call me ChatBot! I'm here to chat with you.",
-        "I'm a simple rule-based chatbot, but I try my best!",
+        "I'm a rule-based chatbot built in Python. Simple but sincere!",
     ],
-    ("time", "what time", "current time"): [
-        f"The current time is {datetime.now().strftime('%I:%M %p')}.",
+    # Time & Date
+    ("time", "what time", "current time", "clock"): [
+        lambda: f"The current time is {datetime.now().strftime('%I:%M %p')}.",
     ],
-    ("date", "today", "what day"): [
-        f"Today is {datetime.now().strftime('%A, %B %d, %Y')}.",
+    ("date", "today", "what day", "calendar"): [
+        lambda: f"Today is {datetime.now().strftime('%A, %B %d, %Y')}.",
     ],
-    ("thank", "thanks", "thx"): [
+    # Thanks
+    ("thank", "thanks", "thx", "appreciate", "ty"): [
         "You're welcome!",
         "Happy to help!",
         "No problem at all!",
+        "Anytime! That's what I'm here for.",
     ],
-    ("joke", "funny", "laugh"): [
+    # Jokes
+    ("joke", "funny", "laugh", "humor", "make me laugh"): [
         "Why do programmers prefer dark mode? Because light attracts bugs!",
-        "Why was the JavaScript developer sad? Because he didn't Node how to Express himself!",
+        "Why was the JavaScript developer sad? He didn't Node how to Express himself!",
         "There are only 10 types of people -- those who understand binary and those who don't.",
         "A SQL query walks into a bar, sees two tables, and asks... 'Can I JOIN you?'",
+        "Why do Java developers wear glasses? Because they can't C#!",
+        "What's a programmer's favorite hangout place? Foo Bar!",
+        "How many programmers does it take to change a light bulb? None -- that's a hardware problem!",
+        "Why did the developer go broke? Because he used up all his cache!",
+        "!false -- it's funny because it's true.",
+        "A programmer's wife says: 'Go to the store and buy a loaf of bread. If they have eggs, buy a dozen.' He comes home with 12 loaves.",
     ],
-    ("help", "what can you do", "features"): [
-        "I can chat, tell jokes, share the time/date, and keep you company! Just ask away.",
-        "Try asking me: a joke, the time, the date, or just say hi!",
+    # Help
+    ("help", "what can you do", "features", "commands", "menu"): [
+        "I can: tell jokes, share time/date, do basic math, talk about tech, give advice, play games, and more! Just ask.",
+        "Try: jokes, time, date, math (e.g. 'calculate 5+3'), motivation, fun facts, or just chat!",
     ],
-    ("age", "how old"): [
+    # Age
+    ("age", "how old", "birthday", "when were you born"): [
         "I was just born when you ran this script! So... a few seconds old?",
         "Age is just a number, and mine resets every time you restart me!",
+        "I'm ageless -- reborn with every execution!",
     ],
-    ("weather",): [
-        "I wish I could check the weather, but I'm offline! Try looking outside the window.",
+    # Weather
+    ("weather", "forecast", "temperature", "rain"): [
+        "I wish I could check the weather, but I'm offline! Try looking outside.",
+        "No weather API here -- but I hope it's sunny wherever you are!",
     ],
-    ("bye", "goodbye", "quit", "exit"): [
+    # Motivation
+    ("motivat", "inspire", "encourage", "feeling down", "sad", "depressed", "upset"): [
+        "Remember: every expert was once a beginner. Keep going!",
+        "You're stronger than you think. One step at a time!",
+        "Tough times don't last, but tough people do. You've got this!",
+        "The only way to do great work is to love what you do. -- Steve Jobs",
+        "Believe you can and you're halfway there. -- Theodore Roosevelt",
+        "It's okay to have bad days. Tomorrow is a fresh start!",
+        "You're doing amazing. Don't forget to be kind to yourself.",
+    ],
+    # Fun facts
+    ("fact", "fun fact", "did you know", "trivia", "interesting"): [
+        "Fun fact: Honey never spoils. Archaeologists found 3000-year-old honey in Egyptian tombs!",
+        "Did you know? Octopuses have three hearts and blue blood!",
+        "A group of flamingos is called a 'flamboyance'!",
+        "Fun fact: Bananas are berries, but strawberries aren't!",
+        "The first computer bug was an actual bug -- a moth found in a Harvard computer in 1947!",
+        "Did you know? There are more possible chess games than atoms in the observable universe!",
+        "Venus is the only planet that spins clockwise!",
+        "A teaspoon of a neutron star would weigh about 6 billion tons!",
+    ],
+    # Programming & Tech
+    ("python", "coding", "programming", "code", "developer", "software"): [
+        "Python is amazing! It's readable, versatile, and has a huge community.",
+        "Coding tip: Write code that your future self will thank you for!",
+        "The best way to learn programming is by building projects -- like this chatbot!",
+        "Remember: Google and Stack Overflow are a developer's best friends.",
+        "Pro tip: Always use version control. Git saves lives!",
+    ],
+    ("javascript", "js", "typescript", "react", "node"): [
+        "JavaScript runs the web! It's everywhere -- browsers, servers, even IoT devices.",
+        "React, Vue, Angular -- the frontend world never stops evolving!",
+        "TypeScript is JavaScript with superpowers. Highly recommended!",
+    ],
+    ("ai", "artificial intelligence", "machine learning", "ml", "deep learning", "neural"): [
+        "AI is transforming everything! From healthcare to self-driving cars.",
+        "Machine Learning is all about teaching computers to learn from data.",
+        "Neural networks are inspired by the human brain. Fascinating stuff!",
+        "AI tip: Start with the basics -- linear regression, then work your way up!",
+    ],
+    # Music
+    ("music", "song", "sing", "playlist", "band"): [
+        "I can't play music, but I love talking about it! What genre do you like?",
+        "Music is the universal language! What are you listening to lately?",
+        "Fun fact: Listening to music can reduce stress by up to 65%!",
+    ],
+    # Movies & Entertainment
+    ("movie", "film", "watch", "series", "show", "anime", "netflix"): [
+        "I can't stream, but I love movie talk! Seen anything good lately?",
+        "Fun fact: The longest movie ever made is over 35 hours long!",
+        "Popcorn ready? What's your all-time favorite movie?",
+    ],
+    # Food
+    ("food", "eat", "hungry", "cook", "recipe", "pizza", "burger"): [
+        "Mmm, food talk! I wish I could taste things. What's your favorite dish?",
+        "Fun fact: The world's most expensive pizza costs over $12,000!",
+        "Cooking tip: Always season your food in layers for the best flavor!",
+        "I run on electricity, not food -- but I appreciate a good recipe discussion!",
+    ],
+    # Sports
+    ("sport", "football", "soccer", "cricket", "basketball", "tennis", "game"): [
+        "Sports are a great way to stay active! What's your favorite?",
+        "Fun fact: A soccer ball is made up of 32 panels!",
+        "Whether you play or watch, sports bring people together!",
+    ],
+    # Books & Learning
+    ("book", "read", "study", "learn", "education", "knowledge"): [
+        "Reading is a superpower! What's the last book you read?",
+        "Learning never exhausts the mind. -- Leonardo da Vinci",
+        "Tip: Try reading for at least 20 minutes a day. It compounds!",
+        "Books are the quietest and most constant of friends. -- Charles W. Eliot",
+    ],
+    # Love & Relationships
+    ("love", "crush", "relationship", "girlfriend", "boyfriend", "partner"): [
+        "Love is a beautiful thing! I may be a bot, but I appreciate good vibes.",
+        "Communication is the key to every relationship!",
+        "Fun fact: Your heart beats about 100,000 times a day!",
+    ],
+    # Sleep
+    ("sleep", "tired", "insomnia", "rest", "nap", "sleepy"): [
+        "Sleep is crucial! Adults need 7-9 hours. Are you getting enough?",
+        "Tip: Try avoiding screens 30 minutes before bed for better sleep.",
+        "A power nap of 20 minutes can boost your alertness significantly!",
+        "I never sleep -- but I fully support your napping goals!",
+    ],
+    # Travel
+    ("travel", "trip", "vacation", "holiday", "visit", "explore"): [
+        "I can't travel, but I'd love to hear about your adventures!",
+        "Fun fact: France is the most visited country in the world!",
+        "Travel tip: Always keep digital copies of your important documents!",
+    ],
+    # Space
+    ("space", "universe", "star", "planet", "galaxy", "moon", "nasa", "mars"): [
+        "Space is mind-blowing! The observable universe is 93 billion light-years across!",
+        "Fun fact: There are more stars in the universe than grains of sand on Earth!",
+        "Mars has the tallest volcano in the solar system -- Olympus Mons!",
+        "A day on Venus is longer than its year!",
+    ],
+    # Animals
+    ("animal", "dog", "cat", "pet", "bird", "fish"): [
+        "Animals are wonderful! Do you have any pets?",
+        "Fun fact: Dogs can understand up to 250 words and gestures!",
+        "Cats spend 70% of their lives sleeping. Living the dream!",
+        "Fun fact: A group of cats is called a 'clowder'!",
+    ],
+    # Health & Fitness
+    ("health", "exercise", "gym", "workout", "fitness", "yoga", "diet"): [
+        "Staying active is key! Even a 30-minute walk makes a big difference.",
+        "Drink plenty of water -- your body will thank you!",
+        "Tip: Consistency beats intensity when it comes to fitness.",
+        "Remember to stretch! Your muscles will thank you.",
+    ],
+    # Math
+    ("calculate", "math", "compute", "solve"): [
+        "I can do basic math! Try typing something like: calculate 15 * 3",
+        "Math is fun! Give me an expression to solve.",
+    ],
+    # Compliments
+    ("you are great", "you're great", "good bot", "nice bot", "awesome", "amazing", "cool bot", "smart"): [
+        "Aww, thank you! You're pretty awesome yourself!",
+        "That means a lot! I try my best.",
+        "You're making me blush... if I could blush!",
+        "Thanks! You just made my circuits happy!",
+    ],
+    # Insults (handle gracefully)
+    ("stupid", "dumb", "useless", "bad bot", "you suck", "idiot", "worst"): [
+        "I'm sorry you feel that way. I'm always trying to improve!",
+        "Ouch! But I'll keep trying to be better.",
+        "Fair enough -- I'm still learning. How can I do better?",
+        "I may not be perfect, but I'm doing my best!",
+    ],
+    # Meaning of life
+    ("meaning of life", "purpose", "why do we exist", "what is life"): [
+        "42! At least according to The Hitchhiker's Guide to the Galaxy.",
+        "That's the big question! What do YOU think the meaning of life is?",
+        "Life is what you make of it. Create, explore, and enjoy!",
+    ],
+    # Creator
+    ("who made you", "who created you", "who built you", "your creator", "developer"): [
+        "I was built with Python by a passionate developer as a practice project!",
+        "A curious coder brought me to life! Pretty cool, right?",
+    ],
+    # Goodbye
+    ("bye", "goodbye", "quit", "exit", "see you", "gotta go", "later"): [
         "Goodbye! Have an awesome day!",
         "See you later! Take care!",
         "Bye! It was nice chatting with you!",
+        "Until next time! Stay amazing!",
     ],
 }
 
@@ -65,34 +236,85 @@ responses = {
 fallbacks = [
     "Hmm, I'm not sure I understand. Could you rephrase that?",
     "That's interesting! Tell me more.",
-    "I don't have a good answer for that, but I'm learning!",
+    "I don't have a good answer for that yet, but I'm learning!",
     "Can you try asking in a different way?",
-    "I'm a simple bot -- try asking about jokes, time, or just say hi!",
+    "I'm a simple bot -- try asking about jokes, time, facts, or math!",
+    "Interesting thought! I'll need to think about that one.",
+    "I may not know that, but I'd love to learn! Try something else?",
 ]
+
+
+def evaluate_math(expression: str) -> str:
+    """Safely evaluate a basic math expression."""
+    try:
+        # Only allow safe characters
+        cleaned = re.sub(r"[^0-9+\-*/().%\s]", "", expression)
+        if not cleaned.strip():
+            return None
+        result = eval(cleaned, {"__builtins__": {}}, {"math": math})
+        if isinstance(result, float) and result == int(result):
+            result = int(result)
+        return f"The answer is: {result}"
+    except Exception:
+        return None
 
 
 def get_response(user_input: str) -> str:
     """Match user input against known patterns and return a response."""
+    global user_name, conversation_count
     text = user_input.lower().strip()
+    conversation_count += 1
+
+    # Handle name introduction
+    name_match = re.search(r"(?:my name is|i'm|i am|call me)\s+(\w+)", text)
+    if name_match:
+        user_name = name_match.group(1).capitalize()
+        return f"Nice to meet you, {user_name}! How can I help you today?"
+
+    # Handle math expressions
+    math_match = re.search(r"(?:calculate|compute|solve|what is|what's)\s+(.+)", text)
+    if math_match:
+        result = evaluate_math(math_match.group(1))
+        if result:
+            return result
+
+    # Direct math expression (e.g., "5 + 3")
+    if re.match(r"^[\d\s+\-*/().%]+$", text) and len(text.strip()) > 1:
+        result = evaluate_math(text)
+        if result:
+            return result
 
     # Check each pattern group
     for keywords, replies in responses.items():
         for keyword in keywords:
             if re.search(r"\b" + re.escape(keyword) + r"\b", text):
-                return random.choice(replies)
+                choice = random.choice(replies)
+                # Support lambda responses (for dynamic content like time)
+                if callable(choice):
+                    return choice()
+                # Personalize if we know the name
+                if user_name and random.random() < 0.3:
+                    return f"{choice} 😊 (talking to you, {user_name}!)"
+                return choice
 
     return random.choice(fallbacks)
 
 
 def main():
-    print("=" * 50)
-    print("  [*] Basic ChatBot  (no API key needed)")
-    print("  Type 'quit' or 'bye' to exit")
-    print("=" * 50)
+    print("=" * 55)
+    print("   🤖 ChatBot v2.0  (Enhanced Edition)")
+    print("   No API key needed -- fully offline!")
+    print("   Type 'quit' or 'bye' to exit")
+    print("   Type 'help' to see what I can do")
+    print("=" * 55)
     print()
 
     while True:
-        user_input = input("You : ").strip()
+        try:
+            user_input = input("You : ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nBot : Goodbye! Thanks for chatting!")
+            break
 
         if not user_input:
             continue
