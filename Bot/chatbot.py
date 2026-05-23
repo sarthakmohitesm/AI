@@ -2,6 +2,7 @@ import random
 import re
 import sys
 import io
+import os
 import math
 from datetime import datetime
 
@@ -14,6 +15,29 @@ user_name = None
 conversation_count = 0
 mood_history = []  # Track user mood throughout the conversation
 start_time = datetime.now()
+chat_log = []  # Store all messages for logging
+
+# --- Chat Log Directory -------------------------------------------------------
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+def log_message(role: str, message: str):
+    """Log a message to the chat history."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    chat_log.append(f"[{timestamp}] {role}: {message}")
+
+def save_chat_log():
+    """Save the entire conversation to a timestamped log file."""
+    if not chat_log:
+        return
+    filename = datetime.now().strftime("chat_%Y%m%d_%H%M%S.txt")
+    filepath = os.path.join(LOG_DIR, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write("ChatBot Conversation Log\n")
+        f.write("=" * 40 + "\n")
+        for line in chat_log:
+            f.write(line + "\n")
+    return filepath
 
 # --- Mood Detection -----------------------------------------------------------
 mood_keywords = {
@@ -96,8 +120,8 @@ responses = {
     ],
     # Help
     ("help", "what can you do", "features", "commands", "menu"): [
-        "I can: tell jokes, share time/date, do basic math, talk about tech, give advice, play games, and more! Just ask.",
-        "Try: jokes, time, date, math (e.g. 'calculate 5+3'), motivation, fun facts, or just chat!",
+        "I can do a lot! Try: jokes, riddle, flip coin, roll dice, random number, time, date, math (e.g. 'calculate 5+3'), motivation, fun facts, stats, or just chat!",
+        "Commands: joke | riddle | flip coin | roll dice | random number | time | date | calculate <expr> | stats | help",
     ],
     # Age
     ("age", "how old", "birthday", "when were you born"): [
@@ -404,10 +428,11 @@ def get_response(user_input: str) -> str:
 
 def main():
     print("=" * 55)
-    print("   🤖 ChatBot v2.1  (Mood-Aware Edition)")
+    print("   🤖 ChatBot v2.2  (Full Feature Edition)")
     print("   No API key needed -- fully offline!")
     print("   Type 'quit' or 'bye' to exit")
     print("   Type 'help' for features, 'stats' for session info")
+    print("   Conversations are auto-saved to /logs")
     print("=" * 55)
     print()
 
@@ -416,16 +441,25 @@ def main():
             user_input = input("You : ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nBot : Goodbye! Thanks for chatting!")
+            save_chat_log()
             break
 
         if not user_input:
             continue
 
+        log_message("You", user_input)
+
         if user_input.lower() in ("quit", "exit", "bye"):
-            print(f"Bot : {get_response(user_input)}")
+            reply = get_response(user_input)
+            print(f"Bot : {reply}")
+            log_message("Bot", reply)
+            filepath = save_chat_log()
+            if filepath:
+                print(f"💾 Chat saved to: {filepath}")
             break
 
         reply = get_response(user_input)
+        log_message("Bot", reply)
         print(f"Bot : {reply}\n")
 
 
