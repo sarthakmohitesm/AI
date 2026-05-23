@@ -288,6 +288,41 @@ def evaluate_math(expression: str) -> str:
         return None
 
 
+# --- Riddles & Mini Games -----------------------------------------------------
+riddles = [
+    ("I have keys but no locks. I have space but no room. You can enter but can't go inside. What am I?", "A keyboard!"),
+    ("What has hands but can't clap?", "A clock!"),
+    ("I speak without a mouth and hear without ears. I have no body, but I come alive with the wind. What am I?", "An echo!"),
+    ("The more you take, the more you leave behind. What am I?", "Footsteps!"),
+    ("What has a head, a tail, is brown, and has no legs?", "A penny!"),
+    ("I'm tall when I'm young, and I'm short when I'm old. What am I?", "A candle!"),
+    ("What can travel around the world while staying in a corner?", "A stamp!"),
+    ("What has many teeth but can't bite?", "A comb!"),
+    ("What gets wetter the more it dries?", "A towel!"),
+    ("I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?", "A map!"),
+]
+
+def get_riddle() -> str:
+    """Return a random riddle with its answer."""
+    question, answer = random.choice(riddles)
+    return f"🧩 Riddle: {question}\n   (Think about it... the answer is: {answer})"
+
+def flip_coin() -> str:
+    """Simulate a coin flip."""
+    result = random.choice(["Heads", "Tails"])
+    return f"🪙 *flips coin* ... It's {result}!"
+
+def roll_dice(sides: int = 6) -> str:
+    """Simulate a dice roll."""
+    result = random.randint(1, sides)
+    return f"🎲 *rolls dice* ... You got a {result}!"
+
+def random_number(low: int = 1, high: int = 100) -> str:
+    """Generate a random number in a range."""
+    num = random.randint(low, high)
+    return f"🔢 Your random number between {low} and {high} is: {num}"
+
+
 def get_conversation_stats() -> str:
     """Return conversation statistics."""
     elapsed = datetime.now() - start_time
@@ -313,6 +348,16 @@ def get_response(user_input: str) -> str:
     # Handle stats command
     if text in ("stats", "statistics", "session"):
         return get_conversation_stats()
+
+    # Handle mini-games
+    if text in ("riddle", "riddles", "brain teaser", "puzzle"):
+        return get_riddle()
+    if text in ("flip", "flip coin", "coin flip", "coin", "heads or tails"):
+        return flip_coin()
+    if text in ("roll", "roll dice", "dice", "dice roll"):
+        return roll_dice()
+    if "random number" in text or text == "random":
+        return random_number()
 
     # Handle name introduction
     name_match = re.search(r"(?:my name is|i'm|i am|call me)\s+(\w+)", text)
