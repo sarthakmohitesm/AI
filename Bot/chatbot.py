@@ -12,6 +12,35 @@ sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
 # --- Conversation Memory ------------------------------------------------------
 user_name = None
 conversation_count = 0
+mood_history = []  # Track user mood throughout the conversation
+start_time = datetime.now()
+
+# --- Mood Detection -----------------------------------------------------------
+mood_keywords = {
+    "happy": ["happy", "glad", "great", "awesome", "fantastic", "wonderful", "excited", "joy", "love it", "amazing", "good"],
+    "sad": ["sad", "unhappy", "depressed", "down", "miserable", "crying", "lonely", "heartbroken", "upset"],
+    "angry": ["angry", "mad", "furious", "annoyed", "irritated", "frustrated", "hate"],
+    "anxious": ["anxious", "nervous", "worried", "stressed", "overwhelmed", "panic", "scared"],
+    "bored": ["bored", "boring", "nothing to do", "dull", "uninteresting"],
+    "neutral": ["okay", "fine", "alright", "so so", "meh", "normal"],
+}
+
+mood_responses = {
+    "happy": ["That's wonderful to hear! 😄", "Your positivity is contagious! 🌟", "Keep that great energy going! ✨"],
+    "sad": ["I'm sorry you're feeling that way. 💙 Want to talk about it?", "Sending you virtual hugs! 🤗", "It's okay to feel sad sometimes. I'm here for you."],
+    "angry": ["Take a deep breath. 🌬️ Want to vent about it?", "I hear you. Sometimes things can be really frustrating.", "Let it out -- I'm here to listen. 💪"],
+    "anxious": ["Try taking slow, deep breaths. 🧘 You've got this!", "One thing at a time -- you don't have to figure it all out now.", "Remember: most of what we worry about never happens. 🌈"],
+    "bored": ["Let's fix that! Want a joke, a fun fact, or a riddle? 🎲", "Boredom is the birthplace of creativity! Try something new!", "How about a quick trivia challenge? Just say 'riddle'!"],
+    "neutral": ["Sometimes neutral is good! Anything I can make better? 😊", "Steady and stable -- nothing wrong with that!"],
+}
+
+def detect_mood(text: str) -> str:
+    """Detect the user's mood from their message."""
+    for mood, keywords in mood_keywords.items():
+        for keyword in keywords:
+            if keyword in text.lower():
+                return mood
+    return None
 
 # --- Response patterns --------------------------------------------------------
 # Each key is a tuple of keywords/patterns, value is a list of possible replies.
@@ -259,17 +288,45 @@ def evaluate_math(expression: str) -> str:
         return None
 
 
+def get_conversation_stats() -> str:
+    """Return conversation statistics."""
+    elapsed = datetime.now() - start_time
+    minutes = int(elapsed.total_seconds() // 60)
+    seconds = int(elapsed.total_seconds() % 60)
+    mood_summary = ", ".join(mood_history[-5:]) if mood_history else "No moods detected yet"
+    name_display = user_name if user_name else "Unknown"
+    return (
+        f"📊 Conversation Stats:\n"
+        f"   Messages exchanged: {conversation_count}\n"
+        f"   Session duration: {minutes}m {seconds}s\n"
+        f"   Your name: {name_display}\n"
+        f"   Recent moods: {mood_summary}"
+    )
+
+
 def get_response(user_input: str) -> str:
     """Match user input against known patterns and return a response."""
     global user_name, conversation_count
     text = user_input.lower().strip()
     conversation_count += 1
 
+    # Handle stats command
+    if text in ("stats", "statistics", "session"):
+        return get_conversation_stats()
+
     # Handle name introduction
     name_match = re.search(r"(?:my name is|i'm|i am|call me)\s+(\w+)", text)
     if name_match:
         user_name = name_match.group(1).capitalize()
         return f"Nice to meet you, {user_name}! How can I help you today?"
+
+    # Detect and respond to mood
+    mood = detect_mood(text)
+    if mood and mood != "neutral":
+        mood_history.append(mood)
+        # If the message is ONLY about mood (short), give a mood response
+        if len(text.split()) <= 5:
+            return random.choice(mood_responses[mood])
 
     # Handle math expressions
     math_match = re.search(r"(?:calculate|compute|solve|what is|what's)\s+(.+)", text)
@@ -302,10 +359,10 @@ def get_response(user_input: str) -> str:
 
 def main():
     print("=" * 55)
-    print("   🤖 ChatBot v2.0  (Enhanced Edition)")
+    print("   🤖 ChatBot v2.1  (Mood-Aware Edition)")
     print("   No API key needed -- fully offline!")
     print("   Type 'quit' or 'bye' to exit")
-    print("   Type 'help' to see what I can do")
+    print("   Type 'help' for features, 'stats' for session info")
     print("=" * 55)
     print()
 
